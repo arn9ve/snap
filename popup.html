@@ -1,0 +1,73 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Snap</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <div class="brand"><span class="logo"></span>Snap</div>
+    <label class="switch" title="Turn Snap on or off (Alt+Shift+S)">
+      <input type="checkbox" id="enabled">
+      <span class="track"><span class="knob"></span></span>
+    </label>
+  </header>
+
+  <div class="status"><span class="dot" id="dot"></span><span id="status">Looking for Google Meet…</span></div>
+
+  <main id="main">
+    <button class="primary" id="toggle">Vanish</button>
+
+    <section>
+      <h2>Effect</h2>
+      <div class="effects" id="effects"></div>
+      <label class="slider">
+        <span>Duration <b id="durLabel"></b></span>
+        <input type="range" id="duration" min="800" max="4000" step="100">
+      </label>
+    </section>
+
+    <section>
+      <h2>Background</h2>
+      <div class="bg">
+        <div class="thumb" id="thumb"><span>No background yet</span></div>
+        <div class="bgmeta">
+          <div id="bgSource" class="muted">Capture your empty room, or upload the picture you use as your Mac camera background.</div>
+          <div class="row">
+            <button id="capture">Capture room</button>
+            <button id="upload">Upload image</button>
+          </div>
+          <div class="row small">
+            <label class="inline">Countdown
+              <select id="countdown">
+                <option value="3">3 s</option><option value="5">5 s</option>
+                <option value="8">8 s</option><option value="10">10 s</option>
+              </select>
+            </label>
+            <button id="clearBg" class="link">Remove</button>
+          </div>
+        </div>
+      </div>
+      <input type="file" id="file" accept="image/*" hidden>
+    </section>
+
+    <section>
+      <h2>Triggers</h2>
+      <label class="check"><input type="checkbox" id="snap"> Finger snap (uses the mic)</label>
+      <label class="slider" id="sensWrap">
+        <span>Snap sensitivity</span>
+        <input type="range" id="sens" min="3" max="14" step="0.5" dir="rtl">
+      </label>
+      <label class="check"><input type="checkbox" id="pill"> Show the pill inside Meet</label>
+      <p class="muted keys">
+        <kbd>⌥</kbd><kbd>⇧</kbd><kbd>X</kbd> vanish / return from anywhere ·
+        <kbd>⌥</kbd><kbd>⇧</kbd><kbd>S</kbd> Snap on / off ·
+        <a href="#" id="shortcuts">change</a>
+      </p>
+    </section>
+  </main>
+
+  <script src="popup.js"></script>
+</body>
+</html>

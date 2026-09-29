@@ -6,15 +6,7 @@
   const S = (window.__snap = window.__snap || {});
 
   S.sensitivity = 9; // multiplier over the room noise floor, lower = more sensitive
-  try {
-    const saved = parseFloat(localStorage.getItem('snap.sens'));
-    if (saved >= 2 && saved <= 20) S.sensitivity = Math.max(saved, 7);
-  } catch (e) { /* storage can be blocked */ }
-
-  S.setSensitivity = (v) => {
-    S.sensitivity = v;
-    try { localStorage.setItem('snap.sens', String(v)); } catch (e) { /* ignore */ }
-  };
+  S.setSensitivity = (v) => { if (v >= 2 && v <= 20) S.sensitivity = v; };
 
   S.startSnapDetector = async function (getUserMedia, onSnap) {
     const stream = await getUserMedia({
@@ -75,6 +67,14 @@
       step(rms, performance.now());
       prev2 = prev; prev = rms;
     };
-    return { ac, stream };
+    return {
+      ac,
+      stop() {
+        sp.onaudioprocess = null;
+        stream.getTracks().forEach((t) => t.stop());
+        ['pointerdown', 'keydown', 'click'].forEach((ev) => window.removeEventListener(ev, resume, true));
+        ac.close().catch(() => {});
+      },
+    };
   };
 })();
