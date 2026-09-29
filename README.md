@@ -39,15 +39,15 @@ There is also a small pill in the top left of Meet with the same basics. `Cmd`/`
 | --- | --- |
 | Dust | The original: you crumble into grains that drift away |
 | Burn | A glowing edge eats through you like burning paper, embers float up |
-| Ghost | The colour drains out, you turn pale and see-through, ripple and float up, leaving wisps |
-| Melt | You sag and run down like hot wax, with long drips and falling drops |
+| Ghost | You go soft and see-through and drift upwards |
+| Melt | You drip down like wax |
 | Portal | You spin and shrink into a purple vortex that closes behind you |
-| Hedge | The Homer Simpson: a hedge grows behind you, you back slowly into it and the leaves close over you |
+| Hedge | The Homer Simpson ("Homer Loves Flanders", 1994): a hedge rises behind you, you back slowly into it, the leaves swallow you from the outline in, face last, it rustles and sinks away. Coming back is Homer stepping out of the hedge |
 
 ## Troubleshooting
 
 - **Not reacting to snaps** — open the popup and snap: the mic meter shows how loud it was, and the snap has to cross the white line. If it doesn't, move `Snap sensitivity` to the right. If the popup says the mic is asleep, click once anywhere on the Meet page (Chrome keeps audio paused until you do). Snapping close to the laptop works best.
-- **Triggers on its own**, for example from talking or knocking sounds — move it to the left.
+- **Triggers on its own** — move it to the left. Snap ignores clicks that come right before or after other sounds (talking, typing), but a single loud isolated key press can still count.
 - **The disappearing looks messy / leaves a trace** — the lighting changed since you captured the room. Capture again, or use a macOS camera background and upload the same image.
 - **The popup says "Reload the Meet tab"** — the extension was installed or updated after Meet was opened. Reload the tab.
 - **The button never shows up at all** — check that `Developer mode` is on and the extension is enabled (toggle is blue) on `chrome://extensions`.

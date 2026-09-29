@@ -103,122 +103,51 @@
     }, st),
   };
 
-  // 3. Ghost: the colour drains out, the body turns pale and translucent,
-  // ripples like heat haze and floats up and towards the camera, leaving
-  // soft wisps behind.
+  // 3. Ghost: goes soft and see-through, drifting up like a spirit.
   E.ghost = {
     label: 'Ghost',
-    render: (pl, { e, now, vanishing, d }) => {
-      const { ctx, W, H, WW, HH, box, fx, fxCtx, maskAvg } = pl;
+    render: (pl, { e }) => {
+      const { ctx, W, H, box } = pl;
       const layer = pl.fullMatte();
       pl.drawBg();
-
-      // pale, cold copy of the body
-      fxCtx.globalCompositeOperation = 'source-over';
-      fxCtx.clearRect(0, 0, W, H);
-      fxCtx.filter = 'grayscale(1) brightness(1.45) contrast(0.8)';
-      fxCtx.drawImage(layer, 0, 0);
-      fxCtx.filter = 'none';
-      fxCtx.globalCompositeOperation = 'source-atop';
-      fxCtx.fillStyle = 'rgba(150,205,255,0.4)';
-      fxCtx.fillRect(0, 0, W, H);
-      fxCtx.globalCompositeOperation = 'source-over';
-
-      const rise = 80 * e * e;
-      const s = 1 + 0.1 * e;
-      const amp = 16 * smooth(e / 0.6);
-      const body = 1 - smooth(e / 0.4);                               // real colours fade first
-      const ghost = 0.85 * smooth(e / 0.25) * (1 - smooth((e - 0.45) / 0.55));
-      // rippled copy drawn once into a scratch canvas, then blurred in one go
-      if (!pl.fx2) pl.fx2 = S.mkCanvas(W, H);
-      const f2 = pl.fx2.getContext('2d');
-      const wave = (img, alpha, blurPx, k) => {
-        if (alpha <= 0.005) return;
-        f2.setTransform(1, 0, 0, 1, 0, 0);
-        f2.clearRect(0, 0, W, H);
-        f2.translate(box.cx, box.cy - rise);
-        f2.scale(s, s);
-        f2.translate(-box.cx, -box.cy);
-        const strip = 6;
-        for (let y = 0; y < H; y += strip) {
-          const dx = Math.sin(y * 0.022 + now * 0.004) * amp * k + Math.sin(y * 0.07 - now * 0.007) * amp * 0.3 * k;
-          f2.drawImage(img, 0, y, W, strip, dx, y, W, strip);
-        }
-        ctx.save();
-        ctx.globalAlpha = alpha;
-        if (blurPx > 0.2) ctx.filter = `blur(${blurPx.toFixed(1)}px)`;
-        ctx.drawImage(pl.fx2, 0, 0);
-        ctx.restore();
-      };
-      wave(layer, body, 0, 0.4);
-      wave(fx, ghost, 1 + e * 3, 1);
-      // soft halo around the ghost
-      ctx.globalCompositeOperation = 'lighter';
-      wave(fx, ghost * 0.3, 14, 1);
-      ctx.globalCompositeOperation = 'source-over';
-
-      // wisps drifting off the body
-      if (vanishing && e > 0.08 && e < 0.9) {
-        for (let k = 0; k < 40; k++) {
-          const i = (Math.random() * WW * HH) | 0;
-          if (maskAvg[i] < 160) continue;
-          const x = (i % WW) * (W / WW), y = ((i / WW) | 0) * (H / HH) - rise;
-          pl.spawn('wisp', x, y, 190, 225, 255, false);
-          if (Math.random() < 0.6) break;
-        }
-      }
+      const s = 1 + 0.06 * e;
+      ctx.save();
+      ctx.translate(box.cx, box.cy - 30 * e);
+      ctx.scale(s, s);
+      ctx.translate(-box.cx, -box.cy);
+      ctx.filter = `blur(${(e * 10).toFixed(1)}px)`;
+      ctx.globalAlpha = Math.pow(1 - e, 1.4);
+      ctx.drawImage(layer, 0, 0, W, H);
+      // a fainter echo a little higher up
+      ctx.globalAlpha = 0.35 * Math.sin(Math.PI * Math.min(1, e * 1.2));
+      ctx.translate(0, -40 * e);
+      ctx.drawImage(layer, 0, 0, W, H);
+      ctx.restore();
     },
   };
 
-  // 4. Melt: the body sags and runs down like hot wax, with long drips,
-  // falling drops and a glossy sheen.
+  // 4. Melt: drips down like wax, column by column.
   E.melt = {
     label: 'Melt',
-    render: (pl, { e, vanishing, d }) => {
-      const { ctx, W, H, WW, HH, fx, fxCtx, maskAvg } = pl;
+    render: (pl, { e }) => {
+      const { ctx, W, H } = pl;
       const layer = pl.fullMatte();
       pl.drawBg();
-      const strip = 3;
+      const strip = 6;
       const cols = Math.ceil(W / strip);
       if (!pl.meltN || pl.meltN.length !== cols) {
         pl.meltN = new Float32Array(cols);
-        pl.meltD = new Float32Array(cols);
-        for (let c = 0; c < cols; c++) {
-          const drip = Math.pow(vnoise(c / 5, 0, 6), 3);                // sharp peaks = drips
-          pl.meltN[c] = 0.55 * vnoise(c / 22, 0, 5) + 0.45 * drip;
-          pl.meltD[c] = vnoise(c / 35, 0, 7);                           // when each column starts
-        }
+        for (let c = 0; c < cols; c++) pl.meltN[c] = 0.6 * vnoise(c / 14, 0, 5) + 0.4 * vnoise(c / 4, 0, 6);
       }
-      fxCtx.clearRect(0, 0, W, H);
+      const drop = Math.pow(e, 1.7);
+      ctx.globalAlpha = 1 - smooth((e - 0.65) / 0.35);
       for (let c = 0; c < cols; c++) {
         const nz = pl.meltN[c];
-        const local = smooth((e - pl.meltD[c] * 0.3) / 0.7);
-        // the top sinks, the column squashes towards the floor, drips hang below
-        const oy = H * Math.pow(local, 1.4) * (0.5 + 0.45 * nz);
-        const drip = H * local * nz * nz * 0.9;
-        fxCtx.drawImage(layer, c * strip, 0, strip, H, c * strip, oy, strip, H - oy + drip);
+        const oy = H * drop * (0.35 + 1.1 * nz);
+        const stretch = 1 + e * 0.8 * nz;
+        ctx.drawImage(layer, c * strip, 0, strip, H, c * strip, oy, strip, H * stretch);
       }
-      ctx.save();
-      ctx.globalAlpha = 1 - smooth((e - 0.75) / 0.25);
-      ctx.filter = `blur(0.8px) saturate(${(1 + 0.5 * e).toFixed(2)}) contrast(${(1 + 0.15 * e).toFixed(2)})`;
-      ctx.drawImage(fx, 0, 0);
-      ctx.restore();
-      // wet highlight running down with the wax
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.globalAlpha = 0.18 * Math.sin(Math.PI * Math.min(1, e * 1.2));
-      ctx.filter = 'blur(6px) grayscale(1)';
-      ctx.drawImage(fx, 2, -3);
-      ctx.restore();
-      // drops falling off
-      if (vanishing && e > 0.15 && e < 0.85) {
-        for (let k = 0; k < 6; k++) {
-          const i = (Math.random() * WW * HH) | 0;
-          if (maskAvg[i] < 180) continue;
-          const j = i * 4, x = (i % WW) * (W / WW), y = ((i / WW) | 0) * (H / HH) + H * e * 0.5;
-          if (y < H) pl.spawn('drop', x, y, d[j], d[j + 1], d[j + 2], false);
-        }
-      }
+      ctx.globalAlpha = 1;
     },
   };
 
@@ -260,106 +189,144 @@
     },
   };
 
-  // 6. Hedge: the Homer Simpson move. A hedge grows in behind you, you back
-  // slowly into it, darker in its shade, the leaves close over you, it
-  // rustles, and then it is gone and the room is empty.
+  // 6. Hedge: the Homer Simpson ("Homer Loves Flanders", 1994). A hedge wall
+  // rises up behind you, you back into it slowly and steadily, darker in its
+  // shade, and the leaves swallow you leaf by leaf from the outline inwards,
+  // face last. The hedge rustles where you went in, then sinks away and the
+  // room is empty. Played backwards it is Homer coming out of the hedge.
+  const HEDGE_TOP = 0.16;       // extra height above the frame for the bumpy top edge
+
+  // One hedge layer, taller than the frame so its bumpy top can rise into view.
+  // front = sparse clumps that end up in front of you.
   function makeHedge(W, H, front) {
-    const c = S.mkCanvas(W, H), g = c.getContext('2d');
+    const HH = Math.round(H * (1 + HEDGE_TOP));
+    const c = S.mkCanvas(W, HH), g = c.getContext('2d');
     const k = W / 1280;
-    if (!front) { g.fillStyle = '#1b3514'; g.fillRect(0, 0, W, H); }
-    // bushy clumps: a dark core, then leaves that get lighter towards the top
-    const step = (front ? 150 : 62) * k;
-    for (let y = -step / 2; y < H + step; y += step * 0.7) {
-      for (let x = -step / 2; x < W + step; x += step * 0.8) {
-        if (front && Math.random() < 0.45) continue;
-        const cx = x + (Math.random() - 0.5) * step * 0.6, cy = y + (Math.random() - 0.5) * step * 0.5;
+    const top = H * HEDGE_TOP * 0.55;
+    const edge = (x) => top + Math.sin(x * 0.011 + 1) * 10 * k + Math.sin(x * 0.037) * 7 * k;
+    if (!front) {
+      g.fillStyle = '#244d1a';
+      g.beginPath(); g.moveTo(0, HH);
+      for (let x = 0; x <= W; x += 8) g.lineTo(x, edge(x) + 14 * k);
+      g.lineTo(W, HH); g.closePath(); g.fill();
+    }
+    const step = (front ? 130 : 58) * k;
+    for (let y = top - step * 0.2; y < HH + step; y += step * 0.68) {
+      for (let x = -step / 2; x < W + step; x += step * 0.78) {
+        if (front && (Math.random() < 0.5 || y < H * 0.35)) continue;
+        const cx = x + (Math.random() - 0.5) * step * 0.6;
+        const cy = Math.max(y + (Math.random() - 0.5) * step * 0.5, edge(cx) + step * 0.35);
         const r = step * (0.55 + Math.random() * 0.3);
-        const sh = g.createRadialGradient(cx, cy + r * 0.3, 0, cx, cy + r * 0.3, r * 1.2);
-        sh.addColorStop(0, 'rgba(8,20,6,0.8)'); sh.addColorStop(1, 'rgba(8,20,6,0)');
+        const sh = g.createRadialGradient(cx, cy + r * 0.35, 0, cx, cy + r * 0.35, r * 1.2);
+        sh.addColorStop(0, 'rgba(6,18,4,0.75)'); sh.addColorStop(1, 'rgba(6,18,4,0)');
         g.fillStyle = sh;
-        g.beginPath(); g.arc(cx, cy + r * 0.3, r * 1.2, 0, Math.PI * 2); g.fill();
-        const leaves = front ? 26 : 34;
-        for (let n = 0; n < leaves; n++) {
+        g.beginPath(); g.arc(cx, cy + r * 0.35, r * 1.2, 0, Math.PI * 2); g.fill();
+        for (let n = 0; n < (front ? 30 : 34); n++) {
           const ang = Math.random() * Math.PI * 2, dist = Math.sqrt(Math.random()) * r;
           const lx = cx + Math.cos(ang) * dist, ly = cy + Math.sin(ang) * dist * 0.85;
-          const up = 1 - (ly - (cy - r)) / (2 * r);                   // top of the clump is lit
-          const L = 16 + up * 26 + Math.random() * 8 - (1 - y / H) * -4;
+          if (ly < edge(lx)) continue;
+          const up = 1 - (ly - (cy - r)) / (2 * r);                   // top of each clump is lit
+          const L = 20 + up * 26 + Math.random() * 8;
           const size = (11 + Math.random() * 10) * k;
           const la = ang + (Math.random() - 0.5);
-          g.fillStyle = `hsl(${100 + Math.random() * 18},${42 + Math.random() * 18}%,${L}%)`;
+          g.fillStyle = `hsl(${98 + Math.random() * 16},${48 + Math.random() * 16}%,${L}%)`;
           g.beginPath(); g.ellipse(lx, ly, size, size * 0.5, la, 0, Math.PI * 2); g.fill();
-          if (up > 0.65 && Math.random() < 0.5) {
-            g.fillStyle = `hsla(88,55%,${L + 16}%,0.5)`;
+          if (up > 0.6 && Math.random() < 0.5) {
+            g.fillStyle = `hsla(86,60%,${L + 18}%,0.55)`;
             g.beginPath(); g.ellipse(lx - size * 0.15, ly - size * 0.12, size * 0.5, size * 0.16, la, 0, Math.PI * 2); g.fill();
           }
         }
       }
     }
-    // darker towards the bottom, like the inside of a real hedge
     if (!front) {
-      const v = g.createLinearGradient(0, 0, 0, H);
-      v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,10,0,0.45)');
-      g.fillStyle = v; g.fillRect(0, 0, W, H);
+      const v = g.createLinearGradient(0, top, 0, HH);
+      v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,10,0,0.4)');
+      g.globalCompositeOperation = 'source-atop';
+      g.fillStyle = v; g.fillRect(0, 0, W, HH);
     }
     return c;
   }
 
+  // Threshold map made of leaf shapes, so the body is covered one leaf at a time.
+  function leafThr(w, h) {
+    const c = S.mkCanvas(w, h), g = c.getContext('2d', { willReadFrequently: true });
+    g.fillStyle = '#000'; g.fillRect(0, 0, w, h);
+    const count = (w * h) / 14;
+    for (let n = 0; n < count; n++) {
+      const v = (Math.random() * 255) | 0;
+      g.fillStyle = `rgb(${v},${v},${v})`;
+      const s = 2.5 + Math.random() * 3.5;
+      g.beginPath(); g.ellipse(Math.random() * w, Math.random() * h, s, s * 0.5, Math.random() * Math.PI, 0, Math.PI * 2); g.fill();
+    }
+    const d = g.getImageData(0, 0, w, h).data, t = new Float32Array(w * h);
+    for (let i = 0; i < t.length; i++) t[i] = d[i * 4] / 255;
+    return t;
+  }
+
   E.hedge = {
     label: 'Hedge',
+    durScale: 1.6,              // Homer takes his time
     render: (pl, { e, prevE, vanishing, now }) => {
       const { ctx, W, H, WW, HH, n, box, maskAvg } = pl;
       if (!pl.hedgeBack) { pl.hedgeBack = makeHedge(W, H, false); pl.hedgeFront = makeHedge(W, H, true); }
-      const hIn = smooth(e / 0.14), hOut = smooth((e - 0.86) / 0.14);
-      const hA = hIn * (1 - hOut);
-      const eng = (x) => smooth((x - 0.3) / 0.56);                 // leaves closing over you
+
+      // the hedge rises from the floor, and sinks back once you are gone
+      const up = smooth(e / 0.16), down = smooth((e - 0.88) / 0.12);
+      const hy = -H * HEDGE_TOP + H * (1 + HEDGE_TOP) * (1 - up + down);
+      const back = smooth((e - 0.1) / 0.66);                        // walking backwards
+      const eng = (x) => smooth((x - 0.25) / 0.65);                 // leaves closing over you
       const g = eng(e), gPrev = prevE == null ? g : eng(prevE);
-      const P = S.P_MIN + g * (S.P_MAX - S.P_MIN), PP = S.P_MIN + gPrev * (S.P_MAX - S.P_MIN);
+      // slow start: the outline goes first and there is a lot of it
+      const P = S.P_MIN + Math.pow(g, 1.6) * (S.P_MAX - S.P_MIN), PP = S.P_MIN + Math.pow(gPrev, 1.6) * (S.P_MAX - S.P_MIN);
       const lo = Math.min(P, PP), hi = Math.max(P, PP);
-      const rustle = Math.sin(Math.PI * smooth((e - 0.3) / 0.65));
-      const jx = Math.sin(now * 0.045) * 4 * rustle, jy = Math.cos(now * 0.061) * 2 * rustle;
+      // rustle mostly once you are inside, around where you went in
+      const rustle = Math.sin(Math.PI * smooth((e - 0.55) / 0.35));
+      const jx = Math.sin(now * 0.05) * 4 * rustle, jy = Math.cos(now * 0.067) * 2.5 * rustle;
 
       pl.drawBg();
-      ctx.globalAlpha = hA;
-      ctx.drawImage(pl.hedgeBack, jx * 0.4, jy * 0.4);
-      ctx.globalAlpha = 1;
+      ctx.drawImage(pl.hedgeBack, 0, hy);
 
-      // leaves close in from the edges of the body towards the middle
-      const thr = pl.thrFor('hedge', (w, h) => {
-        const t = new Float32Array(w * h);
-        for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) t[y * w + x] = 0.65 * vnoise(x / 7, y / 7, 21) + 0.35 * vnoise(x / 2.5, y / 2.5, 22);
-        return normalize(t);
-      });
+      // alpha: leaf-shaped map, edges of the body first and the face last
+      const thr = pl.thrFor('hedge', leafThr);
       const sx = W / WW, sy = H / HH;
-      const bcx = box.cx / sx, bcy = box.cy / sy;
+      const fcx = box.cx / sx, fcy = (box.cy - box.h * 0.25) / sy;  // roughly the face
       const rx = Math.max(10, box.w / sx / 2), ry = Math.max(10, box.h / sy / 2);
-      const a = pl.alphaImg.data;
+      const a = pl.alphaImg.data, sd = pl.glowImg.data;
       for (let i = 0; i < n; i++) {
+        const j = i * 4;
         const m = maskAvg[i] / 255;
-        if (m <= 0) { a[i * 4 + 3] = 0; continue; }
+        if (m <= 0) { a[j + 3] = 0; sd[j + 3] = 0; continue; }
         const x = i % WW, y = (i / WW) | 0;
-        const dx = (x - bcx) / rx, dy = (y - bcy) / ry;
-        const edge = Math.min(1, Math.sqrt(dx * dx + dy * dy));
-        const th = 0.5 * thr[i] + 0.5 * (1 - edge);
-        a[i * 4 + 3] = m * smooth((th - P) / 0.04 + 0.5) * 255;
-        if (vanishing && m > 0.6 && th >= lo && th < hi && Math.random() < 0.012) {
+        const dx = (x - fcx) / rx, dy = (y - fcy) / ry;
+        const dist = Math.min(1, Math.sqrt(dx * dx + dy * dy) / 1.5);
+        const th = 0.35 * thr[i] + 0.65 * (1 - dist);
+        const vis = m * smooth((th - P) / 0.025 + 0.5);
+        a[j + 3] = vis * 255;
+        // leaves about to cover you cast a soft shadow on you first
+        sd[j] = 6; sd[j + 1] = 20; sd[j + 2] = 4;
+        sd[j + 3] = vis * Math.max(0, Math.min(1, 1 - (th - P) / 0.1)) * 140;
+        if (vanishing && m > 0.6 && th >= lo && th < hi && Math.random() < 0.01) {
           pl.spawn('leaf', x * sx, y * sy, 40 + ((Math.random() * 40) | 0), 110 + ((Math.random() * 60) | 0), 30, false);
         }
       }
       pl.alphaCtx.putImageData(pl.alphaImg, 0, 0);
       const layer = pl.matte(pl.alphaC);
+      pl.glowCtx.putImageData(pl.glowImg, 0, 0);
 
-      // step back: smaller, from the feet, and into the shade
-      const back = smooth((e - 0.08) / 0.62);
-      const s = 1 - 0.22 * back;
-      const ax = box.cx, ay = Math.min(H, box.cy + box.h / 2);
+      // step back: steadily smaller and into the shade, no bobbing
+      const s = 1 - 0.2 * back;
       ctx.save();
-      ctx.translate(ax, ay); ctx.scale(s, s); ctx.translate(-ax, -ay);
-      ctx.filter = `brightness(${(1 - 0.5 * back).toFixed(2)}) saturate(${(1 - 0.3 * back).toFixed(2)})`;
+      ctx.translate(box.cx, box.cy); ctx.scale(s, s); ctx.translate(-box.cx, -box.cy - box.h * 0.04 * back);
+      ctx.filter = `brightness(${(1 - 0.45 * back).toFixed(2)}) saturate(${(1 - 0.3 * back).toFixed(2)})`;
       ctx.drawImage(layer, 0, 0);
+      ctx.filter = 'blur(3px)';
+      ctx.globalAlpha = Math.min(1, g * 3);
+      ctx.drawImage(pl.glowC, 0, 0, W, H);
       ctx.restore();
 
-      ctx.globalAlpha = hA * smooth(back * 1.4);
-      ctx.drawImage(pl.hedgeFront, jx, jy);
+      // clumps in front of you, moving with the hedge
+      ctx.globalAlpha = smooth(back * 1.3) * (1 - down);
+      ctx.drawImage(pl.hedgeFront, jx, hy + jy);
       ctx.globalAlpha = 1;
     },
   };

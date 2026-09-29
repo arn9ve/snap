@@ -204,7 +204,7 @@
       // coming back uses the same effect you left with, in reverse
       if (shared.mode === 'live') shared.effect = fx;
       shared.mode = shared.mode === 'live' ? 'out' : 'in';
-      shared.dur = dur;
+      shared.dur = dur * (S.effects[shared.effect].durScale || 1);
       shared.t0 = now;
       shared.t = 0;
       shared.transId++;

@@ -14,10 +14,12 @@
   S.snapMeter = { level: 0, trigger: 0, heardAt: 0, state: 'off' };
 
   const CHUNK = 256;       // samples per analysis step (~5 ms)
-  const MIN_ABS = 0.006;   // never trigger below this, whatever the room
-  const MAX_BURST = 110;   // ms, longer than this is not a snap
-  const COOLDOWN = 1200;   // ms between two snaps
-  const BRIGHT = 0.18;     // share of the energy above 2 kHz
+  const MIN_ABS = 0.0024;  // x sensitivity: never trigger below this, whatever the room
+  const MAX_BURST = 90;    // ms, longer than this is not a snap
+  const COOLDOWN = 1000;   // ms between two snaps
+  const BRIGHT = 0.3;      // share of the energy above 2 kHz
+  const QUIET_BEFORE = 50; // chunks (~270 ms) that must be quiet before a snap
+  const ALONE_AFTER = 220; // ms with no other click after it (typing is many clicks)
 
   S.startSnapDetector = async function (getUserMedia, onSnap) {
     const stream = await getUserMedia({
@@ -48,10 +50,12 @@
 
     const meter = S.snapMeter;
     let floor = 0.002;
-    let state = 'idle';            // idle | burst | reject
-    let peak = 0, t0 = 0, lastFire = -1e9, rejectAt = 0;
+    let state = 'idle';            // idle | burst | confirm | reject
+    let peak = 0, t0 = 0, tEnd = 0, lastFire = -1e9, rejectAt = 0, dur = 0;
     let frames = 0;
-    const hist = [0, 0, 0];        // high-band level of the previous chunks
+    const hist = new Float32Array(QUIET_BEFORE);   // high-band level of the previous chunks
+    const histR = new Float32Array(QUIET_BEFORE);  // full-band level (voices, hums)
+    let hp_ = 0, peakR = 0, rawBefore = 0;
 
     sp.onaudioprocess = (e) => {
       const raw = e.inputBuffer.getChannelData(0);
@@ -66,20 +70,32 @@
       // noise floor: drops quickly, rises slowly, never gets stuck
       floor += (rms - floor) * (rms < floor ? 0.2 : 0.003);
       if (floor < 0.0003) floor = 0.0003;
-      const trigger = Math.max(floor * S.sensitivity, MIN_ABS);
+      const trigger = Math.max(floor * S.sensitivity, MIN_ABS * S.sensitivity);
       // quiet just before (skipping the chunk right before, which may hold the attack)
-      const before = Math.max(hist[0], hist[1]);
+      let before = 0, beforeR = 0;
+      for (let k = 0; k < QUIET_BEFORE - 1; k++) {
+        const q = (hp_ + k) % QUIET_BEFORE;
+        if (hist[q] > before) before = hist[q];
+        if (histR[q] > beforeR) beforeR = histR[q];
+      }
       meter.level = Math.max(meter.level, rms);
       meter.trigger = trigger;
       meter.state = ac.state;
 
       if (state === 'idle') {
-        if (rms > trigger && before < trigger * 0.35 && rms > rmsR * BRIGHT) { state = 'burst'; peak = rms; t0 = now; }
+        if (rms > trigger && before < trigger * 0.3 && rms > rmsR * BRIGHT) { state = 'burst'; peak = rms; peakR = rmsR; rawBefore = beforeR; t0 = now; }
       } else if (state === 'burst') {
         peak = Math.max(peak, rms);
-        const dur = now - t0;
+        peakR = Math.max(peakR, rmsR);
+        dur = now - t0;
         if (dur > MAX_BURST) { state = 'reject'; rejectAt = now; }
-        else if (rms < peak * 0.3) {
+        // someone was already talking: a consonant, not a snap
+        else if (rawBefore > peakR * 0.2) { state = 'reject'; rejectAt = now; }
+        else if (rms < peak * 0.25) { state = 'confirm'; tEnd = now; }
+      } else if (state === 'confirm') {
+        // a second click right after means typing, knocking or talking
+        if (rms > Math.max(trigger * 0.5, peak * 0.35) || rmsR > peakR * 0.3) { state = 'reject'; rejectAt = now; }
+        else if (now - tEnd > ALONE_AFTER) {
           state = 'idle';
           if (now - lastFire > COOLDOWN) {
             lastFire = now;
@@ -87,10 +103,10 @@
             try { onSnap({ peak, dur }); } catch (err) { console.warn('[snap]', err); }
           }
         }
-      } else if (rms < trigger * 0.5 || now - rejectAt > 400) {
+      } else if ((rms < trigger * 0.4 && now - rejectAt > 150) || now - rejectAt > 600) {
         state = 'idle';
       }
-      hist[0] = hist[1]; hist[1] = hist[2]; hist[2] = rms;
+      hist[hp_] = rms; histR[hp_] = rmsR; hp_ = (hp_ + 1) % QUIET_BEFORE;
     };
 
     return {
