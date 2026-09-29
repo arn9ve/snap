@@ -41,7 +41,8 @@ function renderSettings() {
   $('duration').value = settings.duration;
   $('durLabel').textContent = (settings.duration / 1000).toFixed(1) + ' s';
   $('countdown').value = String(settings.countdown);
-  $('snap').checked = settings.snap;
+  $('pauseSnap').textContent = settings.snap ? 'Pause snap' : 'Resume snap';
+  $('pauseSnap').classList.toggle('paused', !settings.snap);
   $('sens').value = settings.sens;
   $('sensWrap').style.display = settings.snap ? '' : 'none';
   $('pill').checked = settings.pill;
@@ -74,6 +75,7 @@ function renderStatus(st) {
   else if (st.mode === 'gone') { msg = 'Vanished. Snap again to come back.'; cls = 'gone'; }
   else if (st.mode === 'out') { msg = 'Vanishing…'; cls = 'gone'; }
   else if (st.mode === 'in') { msg = 'Coming back…'; cls = 'armed'; }
+  else if (!settings.snap) { msg = 'Snap paused: snapping does nothing. Use Vanish or ⌥⇧X.'; cls = 'warn'; }
   else { msg = st.snap === 'on' ? 'Armed. Snap your fingers to vanish.' : 'Armed.'; cls = 'armed'; }
   if (st && st.snap === 'error' && !st.flash && cls !== 'warn') msg += ' (mic unavailable)';
   dot.className = 'dot ' + cls;
@@ -130,7 +132,7 @@ async function init() {
   $('duration').addEventListener('input', (e) => { $('durLabel').textContent = (e.target.value / 1000).toFixed(1) + ' s'; });
   $('duration').addEventListener('change', (e) => save({ duration: Number(e.target.value) }));
   $('countdown').addEventListener('change', (e) => save({ countdown: Number(e.target.value) }));
-  $('snap').addEventListener('change', (e) => save({ snap: e.target.checked }));
+  $('pauseSnap').addEventListener('click', () => save({ snap: !settings.snap }));
   $('sens').addEventListener('change', (e) => save({ sens: Number(e.target.value) }));
   $('pill').addEventListener('change', (e) => save({ pill: e.target.checked }));
   $('toggle').addEventListener('click', async () => renderStatus(await send('toggle')));

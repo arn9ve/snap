@@ -29,6 +29,8 @@ It's normal that Chrome doesn't offer a one-click install like it does for the C
    - **Duration** — how long the vanish takes.
 3. Snap your fingers (a normal, sharp snap) to vanish. Snap again to come back. You can snap as many times as you like, and snapping mid-way turns the effect around.
 
+**Pause snap** — the button next to Vanish (or `Alt`/`Option` `+ Shift + P`, or `pause snap` in the pill) stops listening for snaps, so nothing fires by mistake while you talk, type or clap. The mic is released, the toolbar icon shows `II`, and the Vanish button and shortcuts still work. Press it again to resume.
+
 Other ways to trigger it: the **Vanish** button in the popup, `Alt`/`Option` `+ Shift + X` from anywhere in Chrome, or `Cmd`/`Ctrl` `+ Shift + X` inside the Meet tab. Shortcuts can be changed at `chrome://extensions/shortcuts`.
 
 There is also a small pill in the top left of Meet with the same basics. `Cmd`/`Ctrl` `+ Shift + H` hides it (or untick it in the popup).

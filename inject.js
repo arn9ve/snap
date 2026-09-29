@@ -333,7 +333,10 @@
     const file = el('input', { id: 'file', type: 'file', accept: 'image/*' });
     file.style.display = 'none';
     const panel = el('div', { className: 'panel', id: 'panel' }, [
-      el('button', { id: 'tg', className: 'main', textContent: 'vanish / return' }),
+      el('div', { className: 'row' }, [
+        el('button', { id: 'tg', className: 'main', textContent: 'vanish / return' }),
+        el('button', { id: 'ps', textContent: 'pause snap' }),
+      ]),
       el('label', { textContent: 'effect' }, [sel]),
       el('div', { className: 'row' }, [
         el('button', { id: 'cap', textContent: 'capture room' }),
@@ -341,7 +344,7 @@
       ]),
       file,
       el('label', { textContent: 'snap sensitivity' }, [range]),
-      el('div', { className: 'hint', textContent: 'Capture: step out of frame and wait for the beep. Upload: use the same picture as your Mac camera background. Cmd/Ctrl + Shift + X vanishes, Cmd/Ctrl + Shift + H hides this. More in the toolbar icon.' }),
+      el('div', { className: 'hint', textContent: 'Capture: step out of frame and wait for the beep. Upload: use the same picture as your Mac camera background. Cmd/Ctrl + Shift + X vanishes, Alt/Option + Shift + P pauses the snap, Cmd/Ctrl + Shift + H hides this. More in the toolbar icon.' }),
     ]);
     const pill = el('div', { className: 'pill', id: 'pill' }, [
       el('span', { className: 'dot', id: 'dot' }),
@@ -362,18 +365,25 @@
       else if (!shared.active) { txt = 'snap: waiting for camera'; }
       else if (!shared.bg) { txt = 'snap: set a background'; cls = 'warn'; }
       else if (shared.mode === 'gone') { txt = 'vanished'; cls = 'gone'; }
+      else if (shared.mode === 'live' && !settings.snap) { txt = 'snap paused'; cls = 'warn'; }
       else if (shared.mode === 'live') { txt = snapState === 'on' ? 'armed, snap to vanish' : 'armed'; cls = 'armed'; }
       else txt = shared.mode === 'out' ? 'vanishing' : 'returning';
       dot.className = 'dot ' + cls;
       st.textContent = txt;
       if (root.activeElement !== sel) sel.value = S.effects[settings.effect] ? settings.effect : 'dust';
       if (root.activeElement !== range) range.value = settings.sens;
+      $('ps').textContent = settings.snap ? 'pause snap' : 'resume snap';
     }
     uiRefresh = render;
     shared.onFrame = (() => { let last = 0; return () => { checkFlip(); const n = performance.now(); if (n - last > 250) { last = n; render(); } }; })();
 
     $('pill').addEventListener('click', () => { open = !open; render(); });
     $('tg').addEventListener('click', toggle);
+    $('ps').addEventListener('click', () => {
+      applySettings({ snap: !settings.snap });
+      saveSettings({ snap: settings.snap });
+      flash(settings.snap ? 'snap listening again' : 'snap paused', 1500);
+    });
     $('cap').addEventListener('click', () => { open = false; startCapture(); });
     $('up').addEventListener('click', () => file.click());
     file.addEventListener('change', () => { if (file.files[0]) uploadFile(file.files[0]); file.value = ''; });

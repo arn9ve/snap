@@ -17,7 +17,10 @@
   <div class="status"><span class="dot" id="dot"></span><span id="status">Looking for Google Meet…</span></div>
 
   <main id="main">
-    <button class="primary" id="toggle">Vanish</button>
+    <div class="actions">
+      <button class="primary" id="toggle">Vanish</button>
+      <button class="pause" id="pauseSnap" title="Stop listening for snaps so nothing fires by mistake (Alt+Shift+P)">Pause snap</button>
+    </div>
 
     <section>
       <h2>Effect</h2>
@@ -54,7 +57,6 @@
 
     <section>
       <h2>Triggers</h2>
-      <label class="check"><input type="checkbox" id="snap"> Finger snap (uses the mic)</label>
       <div id="sensWrap">
         <div class="meter" title="Mic level. A snap has to cross the white line.">
           <div class="level" id="level"></div><div class="thr" id="thr"></div>
@@ -67,7 +69,8 @@
       </div>
       <label class="check"><input type="checkbox" id="pill"> Show the pill inside Meet</label>
       <p class="muted keys">
-        <kbd>⌥</kbd><kbd>⇧</kbd><kbd>X</kbd> vanish / return from anywhere ·
+        <kbd>⌥</kbd><kbd>⇧</kbd><kbd>X</kbd> vanish / return ·
+        <kbd>⌥</kbd><kbd>⇧</kbd><kbd>P</kbd> pause / resume snap ·
         <kbd>⌥</kbd><kbd>⇧</kbd><kbd>S</kbd> Snap on / off ·
         <a href="#" id="shortcuts">change</a>
       </p>

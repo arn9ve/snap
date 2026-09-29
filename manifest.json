@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Snap",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Snap your fingers and vanish from your own video in Google Meet, with 6 effects. You stay in the call.",
   "icons": {
     "16": "icons/16.png",
@@ -38,6 +38,12 @@
         "default": "Alt+Shift+S"
       },
       "description": "Turn Snap on / off"
+    },
+    "toggle-snap": {
+      "suggested_key": {
+        "default": "Alt+Shift+P"
+      },
+      "description": "Pause / resume snap detection"
     }
   },
   "content_scripts": [

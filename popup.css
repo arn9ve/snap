@@ -32,7 +32,7 @@ button, select {
 }
 button:hover { background: #2d2d36; }
 button:disabled { opacity: .45; cursor: default; }
-button.primary { width: 100%; padding: 11px; margin-bottom: 12px; font-weight: 600; font-size: 14px; background: var(--accent); border-color: var(--accent-2); }
+button.primary { flex: 1; padding: 11px; font-weight: 600; font-size: 14px; background: var(--accent); border-color: var(--accent-2); }
 button.primary:hover { background: #8a6dff; }
 button.link { background: none; border: none; color: var(--muted); padding: 4px; text-decoration: underline; }
 
@@ -68,3 +68,6 @@ a { color: var(--accent-2); }
 .meter .thr { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; opacity: .8; }
 .micinfo { margin-bottom: 8px; }
 .micinfo.ok { color: var(--ok); } .micinfo.warn { color: var(--warn); }
+.actions { display: flex; gap: 8px; margin-bottom: 12px; }
+button.pause { flex: none; width: 112px; font-weight: 600; }
+button.pause.paused { background: rgba(255,184,107,.16); border-color: var(--warn); color: var(--warn); }
