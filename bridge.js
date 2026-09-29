@@ -9,6 +9,7 @@
 
   async function pushAll() {
     const { settings, bg } = await chrome.storage.local.get(['settings', 'bg']);
+    toPage({ type: 'env', workletUrl: chrome.runtime.getURL('snap-worklet.js') });
     toPage({ type: 'settings', settings: settings || {} });
     toPage({ type: 'bg', bg: bg || null });
   }

@@ -63,7 +63,8 @@
   window.addEventListener('message', (ev) => {
     if (ev.source !== window || !ev.data || ev.data.snapTo !== 'page') return;
     const m = ev.data;
-    if (m.type === 'settings') applySettings(m.settings);
+    if (m.type === 'env') { if (typeof m.workletUrl === 'string' && m.workletUrl.startsWith('chrome-extension://')) S.workletUrl = m.workletUrl; }
+    else if (m.type === 'settings') applySettings(m.settings);
     else if (m.type === 'bg') receiveBg(m.bg);
     else if (m.type === 'cmd') {
       if (m.cmd === 'toggle') toggle();

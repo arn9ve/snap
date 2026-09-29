@@ -35,13 +35,9 @@
     const merge = ac.createChannelMerger(2);
     src.connect(merge, 0, 0);
     src.connect(hp); hp.connect(merge, 0, 1);
-    // ScriptProcessor is old but it needs no extra files, so Meet's page
-    // security rules cannot block it
-    const sp = ac.createScriptProcessor(CHUNK, 2, 1);
     const mute = ac.createGain();
     mute.gain.value = 0;
-    merge.connect(sp); sp.connect(mute); mute.connect(ac.destination);
-
+    mute.connect(ac.destination);
     // Chrome starts audio "asleep" until the page gets a click or key press
     const resume = () => { if (ac.state === 'suspended') ac.resume().catch(() => {}); };
     ['pointerdown', 'keydown', 'click'].forEach((ev) => window.addEventListener(ev, resume, true));
@@ -52,21 +48,12 @@
     let floor = 0.002;
     let state = 'idle';            // idle | burst | confirm | reject
     let peak = 0, t0 = 0, tEnd = 0, lastFire = -1e9, rejectAt = 0, dur = 0;
-    let frames = 0;
     const hist = new Float32Array(QUIET_BEFORE);   // high-band level of the previous chunks
     const histR = new Float32Array(QUIET_BEFORE);  // full-band level (voices, hums)
     let hp_ = 0, peakR = 0, rawBefore = 0;
 
-    sp.onaudioprocess = (e) => {
-      const raw = e.inputBuffer.getChannelData(0);
-      const hi = e.inputBuffer.getChannelData(1);
-      let sr = 0, sh = 0;
-      for (let i = 0; i < hi.length; i++) { sr += raw[i] * raw[i]; sh += hi[i] * hi[i]; }
-      const rmsR = Math.sqrt(sr / raw.length), rms = Math.sqrt(sh / hi.length);
-      // time from the sample count: exact even when callbacks arrive in bursts
-      const now = (frames * CHUNK * 1000) / ac.sampleRate;
-      frames++;
-
+    // one analysis step: full-band level, high-band level, time in ms
+    function step(rmsR, rms, now) {
       // noise floor: drops quickly, rises slowly, never gets stuck
       floor += (rms - floor) * (rms < floor ? 0.2 : 0.003);
       if (floor < 0.0003) floor = 0.0003;
@@ -107,12 +94,39 @@
         state = 'idle';
       }
       hist[hp_] = rms; histR[hp_] = rmsR; hp_ = (hp_ + 1) % QUIET_BEFORE;
-    };
+    }
+
+    // Preferred: an AudioWorklet (modern, off the main thread). The module is
+    // an extension file; bridge.js tells us its URL. If Meet's page rules
+    // block it, fall back to the old ScriptProcessor.
+    let node = null, sp = null;
+    try {
+      if (!S.workletUrl || !ac.audioWorklet) throw new Error('no worklet');
+      await Promise.race([
+        ac.audioWorklet.addModule(S.workletUrl),
+        new Promise((_, no) => setTimeout(() => no(new Error('worklet load timed out')), 3000)),
+      ]);
+      node = new AudioWorkletNode(ac, 'snap-meter', { numberOfInputs: 1, numberOfOutputs: 1, channelCount: 2, channelCountMode: 'explicit' });
+      node.port.onmessage = (ev) => { const [r, h, frame] = ev.data; step(r, h, (frame * 1000) / ac.sampleRate); };
+      merge.connect(node); node.connect(mute);
+    } catch (err) {
+      console.info('[snap] audio worklet unavailable, using the fallback', err && err.message);
+      let frames = 0;
+      sp = ac.createScriptProcessor(CHUNK, 2, 1);
+      sp.onaudioprocess = (e) => {
+        const raw = e.inputBuffer.getChannelData(0), hi = e.inputBuffer.getChannelData(1);
+        let sr = 0, sh = 0;
+        for (let i = 0; i < hi.length; i++) { sr += raw[i] * raw[i]; sh += hi[i] * hi[i]; }
+        step(Math.sqrt(sr / raw.length), Math.sqrt(sh / hi.length), (frames++ * CHUNK * 1000) / ac.sampleRate);
+      };
+      merge.connect(sp); sp.connect(mute);
+    }
 
     return {
       ac,
       stop() {
-        sp.onaudioprocess = null;
+        if (node) node.port.onmessage = null;
+        if (sp) sp.onaudioprocess = null;
         clearInterval(wake);
         stream.getTracks().forEach((t) => t.stop());
         ['pointerdown', 'keydown', 'click'].forEach((ev) => window.removeEventListener(ev, resume, true));
