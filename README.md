@@ -42,7 +42,7 @@ There is also a small pill in the top left of Meet with the same basics. `Cmd`/`
 | Ghost | You go soft and see-through and drift upwards |
 | Melt | You drip down like wax |
 | Portal | You spin and shrink into a purple vortex that closes behind you |
-| Hedge | The Homer Simpson ("Homer Loves Flanders", 1994): a hedge rises behind you, you back slowly into it, the leaves swallow you from the outline in, face last, it rustles and sinks away. Coming back is Homer stepping out of the hedge |
+| Hedge | The Homer Simpson ("Homer Loves Flanders", 1994): you step back while two hedges slide in from the left and the right in front of you, swaying. They close with a rustle and a burst of leaves, then part again and you're gone. Coming back is Homer stepping out of the hedge |
 
 ## Troubleshooting
 

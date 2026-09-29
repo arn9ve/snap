@@ -130,7 +130,7 @@
   E.melt = {
     label: 'Melt',
     render: (pl, { e }) => {
-      const { ctx, W, H } = pl;
+      const { ctx, W, H, fx, fxCtx } = pl;
       const layer = pl.fullMatte();
       pl.drawBg();
       const strip = 6;
@@ -140,13 +140,16 @@
         for (let c = 0; c < cols; c++) pl.meltN[c] = 0.6 * vnoise(c / 14, 0, 5) + 0.4 * vnoise(c / 4, 0, 6);
       }
       const drop = Math.pow(e, 1.7);
-      ctx.globalAlpha = 1 - smooth((e - 0.65) / 0.35);
+      // strips go to a scratch canvas first, then onto the output in one draw
+      fxCtx.clearRect(0, 0, W, H);
       for (let c = 0; c < cols; c++) {
         const nz = pl.meltN[c];
         const oy = H * drop * (0.35 + 1.1 * nz);
         const stretch = 1 + e * 0.8 * nz;
-        ctx.drawImage(layer, c * strip, 0, strip, H, c * strip, oy, strip, H * stretch);
+        fxCtx.drawImage(layer, c * strip, 0, strip, H, c * strip, oy, strip, H * stretch);
       }
+      ctx.globalAlpha = 1 - smooth((e - 0.65) / 0.35);
+      ctx.drawImage(fx, 0, 0);
       ctx.globalAlpha = 1;
     },
   };
@@ -189,145 +192,129 @@
     },
   };
 
-  // 6. Hedge: the Homer Simpson ("Homer Loves Flanders", 1994). A hedge wall
-  // rises up behind you, you back into it slowly and steadily, darker in its
-  // shade, and the leaves swallow you leaf by leaf from the outline inwards,
-  // face last. The hedge rustles where you went in, then sinks away and the
-  // room is empty. Played backwards it is Homer coming out of the hedge.
-  const HEDGE_TOP = 0.16;       // extra height above the frame for the bumpy top edge
+  // 6. Hedge: the Homer Simpson ("Homer Loves Flanders", 1994). You step back
+  // while two hedges slide in from the left and the right in front of you,
+  // swaying as they come. They close with a rustle and a burst of leaves,
+  // then part again and you are gone. Played backwards: Homer stepping out.
+  const PANEL = 0.6;            // each hedge is this share of the frame width
 
-  // One hedge layer, taller than the frame so its bumpy top can rise into view.
-  // front = sparse clumps that end up in front of you.
-  function makeHedge(W, H, front) {
-    const HH = Math.round(H * (1 + HEDGE_TOP));
-    const c = S.mkCanvas(W, HH), g = c.getContext('2d');
+  // One hedge panel with a leafy, bumpy inner edge. side: -1 left, +1 right.
+  function makePanel(W, H, side) {
     const k = W / 1280;
-    const top = H * HEDGE_TOP * 0.55;
-    const edge = (x) => top + Math.sin(x * 0.011 + 1) * 10 * k + Math.sin(x * 0.037) * 7 * k;
-    if (!front) {
-      g.fillStyle = '#244d1a';
-      g.beginPath(); g.moveTo(0, HH);
-      for (let x = 0; x <= W; x += 8) g.lineTo(x, edge(x) + 14 * k);
-      g.lineTo(W, HH); g.closePath(); g.fill();
-    }
-    const step = (front ? 130 : 58) * k;
-    for (let y = top - step * 0.2; y < HH + step; y += step * 0.68) {
-      for (let x = -step / 2; x < W + step; x += step * 0.78) {
-        if (front && (Math.random() < 0.5 || y < H * 0.35)) continue;
-        const cx = x + (Math.random() - 0.5) * step * 0.6;
-        const cy = Math.max(y + (Math.random() - 0.5) * step * 0.5, edge(cx) + step * 0.35);
+    const pw = Math.round(W * PANEL), ext = Math.round(H * 0.08);
+    const c = S.mkCanvas(pw, H + ext * 2), g = c.getContext('2d');
+    const CH = c.height;
+    // inner edge (x from the outer side), wobbly like a real bush
+    const seed = Math.random() * 10;
+    const edge = (y) => pw - 60 * k + Math.sin(y * 0.011 + seed) * 30 * k + Math.sin(y * 0.034 + seed * 2) * 18 * k + Math.sin(y * 0.09 + seed * 3) * 6 * k;
+    const X = (x) => (side < 0 ? x : pw - x);                      // mirror for the right hedge
+    g.fillStyle = '#1f4617';
+    g.beginPath(); g.moveTo(X(0), 0);
+    for (let y = 0; y <= CH; y += 8) g.lineTo(X(edge(y) - 10 * k), y);
+    g.lineTo(X(0), CH); g.closePath(); g.fill();
+
+    const step = 58 * k;
+    for (let y = -step / 2; y < CH + step; y += step * 0.68) {
+      for (let x = -step / 2; x < pw + step; x += step * 0.78) {
+        const cy = y + (Math.random() - 0.5) * step * 0.5;
+        const cx = Math.min(x + (Math.random() - 0.5) * step * 0.6, edge(cy) - step * 0.3);
         const r = step * (0.55 + Math.random() * 0.3);
-        const sh = g.createRadialGradient(cx, cy + r * 0.35, 0, cx, cy + r * 0.35, r * 1.2);
+        const sh = g.createRadialGradient(X(cx), cy + r * 0.35, 0, X(cx), cy + r * 0.35, r * 1.2);
         sh.addColorStop(0, 'rgba(6,18,4,0.75)'); sh.addColorStop(1, 'rgba(6,18,4,0)');
         g.fillStyle = sh;
-        g.beginPath(); g.arc(cx, cy + r * 0.35, r * 1.2, 0, Math.PI * 2); g.fill();
-        for (let n = 0; n < (front ? 30 : 34); n++) {
+        g.beginPath(); g.arc(X(cx), cy + r * 0.35, r * 1.2, 0, Math.PI * 2); g.fill();
+        for (let n = 0; n < 34; n++) {
           const ang = Math.random() * Math.PI * 2, dist = Math.sqrt(Math.random()) * r;
           const lx = cx + Math.cos(ang) * dist, ly = cy + Math.sin(ang) * dist * 0.85;
-          if (ly < edge(lx)) continue;
-          const up = 1 - (ly - (cy - r)) / (2 * r);                   // top of each clump is lit
-          const L = 20 + up * 26 + Math.random() * 8;
+          if (lx > edge(ly) + 16 * k) continue;                    // a few leaves poke out
+          const up = 1 - (ly - (cy - r)) / (2 * r);                 // top of each clump is lit
+          const inner = lx / pw;                                    // lighter towards the opening
+          const L = 18 + up * 24 + inner * 6 + Math.random() * 8;
           const size = (11 + Math.random() * 10) * k;
           const la = ang + (Math.random() - 0.5);
           g.fillStyle = `hsl(${98 + Math.random() * 16},${48 + Math.random() * 16}%,${L}%)`;
-          g.beginPath(); g.ellipse(lx, ly, size, size * 0.5, la, 0, Math.PI * 2); g.fill();
+          g.beginPath(); g.ellipse(X(lx), ly, size, size * 0.5, la, 0, Math.PI * 2); g.fill();
           if (up > 0.6 && Math.random() < 0.5) {
             g.fillStyle = `hsla(86,60%,${L + 18}%,0.55)`;
-            g.beginPath(); g.ellipse(lx - size * 0.15, ly - size * 0.12, size * 0.5, size * 0.16, la, 0, Math.PI * 2); g.fill();
+            g.beginPath(); g.ellipse(X(lx - size * 0.15), ly - size * 0.12, size * 0.5, size * 0.16, la, 0, Math.PI * 2); g.fill();
           }
         }
       }
     }
-    if (!front) {
-      const v = g.createLinearGradient(0, top, 0, HH);
-      v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,10,0,0.4)');
-      g.globalCompositeOperation = 'source-atop';
-      g.fillStyle = v; g.fillRect(0, 0, W, HH);
-    }
-    return c;
+    // rounded shading along the inner edge, so it reads as a thick bush
+    const sg = g.createLinearGradient(X(pw), 0, X(pw - 90 * k), 0);
+    sg.addColorStop(0, 'rgba(0,12,0,0.45)'); sg.addColorStop(1, 'rgba(0,12,0,0)');
+    g.globalCompositeOperation = 'source-atop';
+    g.fillStyle = sg; g.fillRect(0, 0, pw, CH);
+    const v = g.createLinearGradient(0, 0, 0, CH);
+    v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,10,0,0.35)');
+    g.fillStyle = v; g.fillRect(0, 0, pw, CH);
+    return { c, pw, ext };
   }
 
-  // Threshold map made of leaf shapes, so the body is covered one leaf at a time.
-  function leafThr(w, h) {
-    const c = S.mkCanvas(w, h), g = c.getContext('2d', { willReadFrequently: true });
-    g.fillStyle = '#000'; g.fillRect(0, 0, w, h);
-    const count = (w * h) / 14;
-    for (let n = 0; n < count; n++) {
-      const v = (Math.random() * 255) | 0;
-      g.fillStyle = `rgb(${v},${v},${v})`;
-      const s = 2.5 + Math.random() * 3.5;
-      g.beginPath(); g.ellipse(Math.random() * w, Math.random() * h, s, s * 0.5, Math.random() * Math.PI, 0, Math.PI * 2); g.fill();
+  // Draw a panel in horizontal bands that sway separately, like foliage
+  // moving in the wind or being pushed.
+  function drawPanel(ctx, p, x, t, sway, H) {
+    const band = 16, CH = p.c.height;
+    for (let y = 0; y < CH; y += band) {
+      const dx = (Math.sin(y * 0.018 + t * 2.4) * 0.6 + Math.sin(y * 0.051 - t * 3.7) * 0.4) * sway;
+      ctx.drawImage(p.c, 0, y, p.pw, band + 1, x + dx, y - p.ext, p.pw, band + 1);
     }
-    const d = g.getImageData(0, 0, w, h).data, t = new Float32Array(w * h);
-    for (let i = 0; i < t.length; i++) t[i] = d[i * 4] / 255;
-    return t;
   }
 
   E.hedge = {
     label: 'Hedge',
     durScale: 1.6,              // Homer takes his time
     render: (pl, { e, prevE, vanishing, now }) => {
-      const { ctx, W, H, WW, HH, n, box, maskAvg } = pl;
-      if (!pl.hedgeBack) { pl.hedgeBack = makeHedge(W, H, false); pl.hedgeFront = makeHedge(W, H, true); }
-
-      // the hedge rises from the floor, and sinks back once you are gone
-      const up = smooth(e / 0.16), down = smooth((e - 0.88) / 0.12);
-      const hy = -H * HEDGE_TOP + H * (1 + HEDGE_TOP) * (1 - up + down);
-      const back = smooth((e - 0.1) / 0.66);                        // walking backwards
-      const eng = (x) => smooth((x - 0.25) / 0.65);                 // leaves closing over you
-      const g = eng(e), gPrev = prevE == null ? g : eng(prevE);
-      // slow start: the outline goes first and there is a lot of it
-      const P = S.P_MIN + Math.pow(g, 1.6) * (S.P_MAX - S.P_MIN), PP = S.P_MIN + Math.pow(gPrev, 1.6) * (S.P_MAX - S.P_MIN);
-      const lo = Math.min(P, PP), hi = Math.max(P, PP);
-      // rustle mostly once you are inside, around where you went in
-      const rustle = Math.sin(Math.PI * smooth((e - 0.55) / 0.35));
-      const jx = Math.sin(now * 0.05) * 4 * rustle, jy = Math.cos(now * 0.067) * 2.5 * rustle;
+      const { ctx, W, H, box } = pl;
+      if (!pl.hedgeL) { pl.hedgeL = makePanel(W, H, -1); pl.hedgeR = makePanel(W, H, 1); }
+      const k = W / 1280, t = now / 1000;
+      const CLOSED = 0.46;                                        // moment the hedges meet
+      const close = smooth(e / CLOSED);
+      const open = smooth((e - 0.62) / 0.38);
+      const pos = close * (1 - open);                             // 0 = off screen, 1 = closed
+      const hit = Math.max(0, 1 - Math.abs(e - 0.5) / 0.14);     // rustle when they meet
+      const sway = 5 * k + 7 * k * Math.sin(Math.PI * Math.min(1, e / CLOSED)) + 22 * k * hit;
+      const shake = Math.sin(now * 0.06) * 10 * k * hit;
 
       pl.drawBg();
-      ctx.drawImage(pl.hedgeBack, 0, hy);
 
-      // alpha: leaf-shaped map, edges of the body first and the face last
-      const thr = pl.thrFor('hedge', leafThr);
-      const sx = W / WW, sy = H / HH;
-      const fcx = box.cx / sx, fcy = (box.cy - box.h * 0.25) / sy;  // roughly the face
-      const rx = Math.max(10, box.w / sx / 2), ry = Math.max(10, box.h / sy / 2);
-      const a = pl.alphaImg.data, sd = pl.glowImg.data;
-      for (let i = 0; i < n; i++) {
-        const j = i * 4;
-        const m = maskAvg[i] / 255;
-        if (m <= 0) { a[j + 3] = 0; sd[j + 3] = 0; continue; }
-        const x = i % WW, y = (i / WW) | 0;
-        const dx = (x - fcx) / rx, dy = (y - fcy) / ry;
-        const dist = Math.min(1, Math.sqrt(dx * dx + dy * dy) / 1.5);
-        const th = 0.35 * thr[i] + 0.65 * (1 - dist);
-        const vis = m * smooth((th - P) / 0.025 + 0.5);
-        a[j + 3] = vis * 255;
-        // leaves about to cover you cast a soft shadow on you first
-        sd[j] = 6; sd[j + 1] = 20; sd[j + 2] = 4;
-        sd[j + 3] = vis * Math.max(0, Math.min(1, 1 - (th - P) / 0.1)) * 140;
-        if (vanishing && m > 0.6 && th >= lo && th < hi && Math.random() < 0.01) {
-          pl.spawn('leaf', x * sx, y * sy, 40 + ((Math.random() * 40) | 0), 110 + ((Math.random() * 60) | 0), 30, false);
+      // you, stepping back and into the shade of the hedges, until they close
+      if (e < CLOSED + 0.02) {
+        const layer = pl.fullMatte();
+        const back = smooth(e / CLOSED);
+        const s = 1 - 0.16 * back;
+        ctx.save();
+        ctx.translate(box.cx, box.cy); ctx.scale(s, s); ctx.translate(-box.cx, -box.cy - box.h * 0.03 * back);
+        ctx.filter = `brightness(${(1 - 0.4 * back).toFixed(2)})`;
+        ctx.drawImage(layer, 0, 0);
+        ctx.restore();
+      }
+
+      // the two hedges; at pos 1 their leafy edges overlap in the middle
+      const L = pl.hedgeL, R = pl.hedgeR;
+      const overlap = 36 * k;
+      const lx = -L.pw + pos * (W / 2 + overlap) + shake;
+      const rx = W - pos * (W / 2 + overlap) - shake;
+      if (pos > 0.001) {
+        // soft shadow each hedge throws on the room just past its edge
+        for (const [ex, dir] of [[lx + L.pw, 1], [rx, -1]]) {
+          const sg = ctx.createLinearGradient(ex, 0, ex + dir * 70 * k, 0);
+          sg.addColorStop(0, `rgba(0,10,0,${(0.35 * pos).toFixed(3)})`); sg.addColorStop(1, 'rgba(0,10,0,0)');
+          ctx.fillStyle = sg;
+          ctx.fillRect(Math.min(ex, ex + dir * 70 * k), 0, 70 * k, H);
+        }
+        drawPanel(ctx, L, lx, t, sway, H);
+        drawPanel(ctx, R, rx, t + 1.7, sway, H);
+      }
+
+      // a burst of leaves where they meet
+      if (vanishing && hit > 0.3 && prevE != null) {
+        for (let n = 0; n < 10 * hit; n++) {
+          const x = W / 2 + (Math.random() - 0.5) * 80 * k, y = Math.random() * H;
+          pl.spawn('leaf', x, y, 40 + ((Math.random() * 50) | 0), 105 + ((Math.random() * 70) | 0), 30, false);
         }
       }
-      pl.alphaCtx.putImageData(pl.alphaImg, 0, 0);
-      const layer = pl.matte(pl.alphaC);
-      pl.glowCtx.putImageData(pl.glowImg, 0, 0);
-
-      // step back: steadily smaller and into the shade, no bobbing
-      const s = 1 - 0.2 * back;
-      ctx.save();
-      ctx.translate(box.cx, box.cy); ctx.scale(s, s); ctx.translate(-box.cx, -box.cy - box.h * 0.04 * back);
-      ctx.filter = `brightness(${(1 - 0.45 * back).toFixed(2)}) saturate(${(1 - 0.3 * back).toFixed(2)})`;
-      ctx.drawImage(layer, 0, 0);
-      ctx.filter = 'blur(3px)';
-      ctx.globalAlpha = Math.min(1, g * 3);
-      ctx.drawImage(pl.glowC, 0, 0, W, H);
-      ctx.restore();
-
-      // clumps in front of you, moving with the hedge
-      ctx.globalAlpha = smooth(back * 1.3) * (1 - down);
-      ctx.drawImage(pl.hedgeFront, jx, hy + jy);
-      ctx.globalAlpha = 1;
     },
   };
 
