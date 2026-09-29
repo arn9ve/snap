@@ -208,10 +208,12 @@
     const seed = Math.random() * 10;
     const edge = (y) => pw - 60 * k + Math.sin(y * 0.011 + seed) * 30 * k + Math.sin(y * 0.034 + seed * 2) * 18 * k + Math.sin(y * 0.09 + seed * 3) * 6 * k;
     const X = (x) => (side < 0 ? x : pw - x);                      // mirror for the right hedge
+    const body = new Path2D();
+    body.moveTo(X(0), 0);
+    for (let y = 0; y <= CH; y += 8) body.lineTo(X(edge(y) - 14 * k), y);
+    body.lineTo(X(0), CH); body.closePath();
     g.fillStyle = '#1f4617';
-    g.beginPath(); g.moveTo(X(0), 0);
-    for (let y = 0; y <= CH; y += 8) g.lineTo(X(edge(y) - 10 * k), y);
-    g.lineTo(X(0), CH); g.closePath(); g.fill();
+    g.fill(body);
 
     const step = 58 * k;
     for (let y = -step / 2; y < CH + step; y += step * 0.68) {
@@ -221,8 +223,11 @@
         const r = step * (0.55 + Math.random() * 0.3);
         const sh = g.createRadialGradient(X(cx), cy + r * 0.35, 0, X(cx), cy + r * 0.35, r * 1.2);
         sh.addColorStop(0, 'rgba(6,18,4,0.75)'); sh.addColorStop(1, 'rgba(6,18,4,0)');
+        // the dark core stays inside the bush, never spills past its edge
+        g.save(); g.clip(body);
         g.fillStyle = sh;
         g.beginPath(); g.arc(X(cx), cy + r * 0.35, r * 1.2, 0, Math.PI * 2); g.fill();
+        g.restore();
         for (let n = 0; n < 34; n++) {
           const ang = Math.random() * Math.PI * 2, dist = Math.sqrt(Math.random()) * r;
           const lx = cx + Math.cos(ang) * dist, ly = cy + Math.sin(ang) * dist * 0.85;
@@ -247,42 +252,44 @@
     g.globalCompositeOperation = 'source-atop';
     g.fillStyle = sg; g.fillRect(0, 0, pw, CH);
     const v = g.createLinearGradient(0, 0, 0, CH);
-    v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,10,0,0.35)');
+    v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,10,0,0.18)');
     g.fillStyle = v; g.fillRect(0, 0, pw, CH);
     return { c, pw, ext };
   }
 
   // Draw a panel in horizontal bands that sway separately, like foliage
   // moving in the wind or being pushed.
-  function drawPanel(ctx, p, x, t, sway, H) {
-    const band = 16, CH = p.c.height;
+  function drawPanel(ctx, p, x, t, sway) {
+    const band = 6, CH = p.c.height;
     for (let y = 0; y < CH; y += band) {
-      const dx = (Math.sin(y * 0.018 + t * 2.4) * 0.6 + Math.sin(y * 0.051 - t * 3.7) * 0.4) * sway;
+      const dx = (Math.sin(y * 0.006 + t * 1.6) * 0.7 + Math.sin(y * 0.015 - t * 2.3) * 0.3) * sway;
       ctx.drawImage(p.c, 0, y, p.pw, band + 1, x + dx, y - p.ext, p.pw, band + 1);
     }
   }
 
   E.hedge = {
     label: 'Hedge',
-    durScale: 1.6,              // Homer takes his time
     render: (pl, { e, prevE, vanishing, now }) => {
       const { ctx, W, H, box } = pl;
       if (!pl.hedgeL) { pl.hedgeL = makePanel(W, H, -1); pl.hedgeR = makePanel(W, H, 1); }
       const k = W / 1280, t = now / 1000;
-      const CLOSED = 0.46;                                        // moment the hedges meet
-      const close = smooth(e / CLOSED);
-      const open = smooth((e - 0.62) / 0.38);
-      const pos = close * (1 - open);                             // 0 = off screen, 1 = closed
-      const hit = Math.max(0, 1 - Math.abs(e - 0.5) / 0.14);     // rustle when they meet
-      const sway = 5 * k + 7 * k * Math.sin(Math.PI * Math.min(1, e / CLOSED)) + 22 * k * hit;
-      const shake = Math.sin(now * 0.06) * 10 * k * hit;
+      const CLOSED = 0.42;                                        // moment the hedges meet
+      const c = Math.min(1, e / CLOSED);
+      const close = c < 0.5 ? 4 * c * c * c : 1 - Math.pow(-2 * c + 2, 3) / 2;
+      // they meet with a small springy bounce instead of a hard stop
+      const after = Math.max(0, e - CLOSED);
+      const bounce = after > 0 ? Math.exp(-after * 22) * Math.sin(after * 55) * 0.035 : 0;
+      const open = smooth((e - 0.58) / 0.42);
+      const pos = (close + bounce) * (1 - open);                  // 0 = off screen, 1 = closed
+      const hit = Math.exp(-Math.pow((e - CLOSED - 0.03) / 0.07, 2)); // rustle when they meet
+      const sway = (4 + 6 * Math.sin(Math.PI * c) + 16 * hit) * k;
 
       pl.drawBg();
 
       // you, stepping back and into the shade of the hedges, until they close
       if (e < CLOSED + 0.02) {
         const layer = pl.fullMatte();
-        const back = smooth(e / CLOSED);
+        const back = smooth(c);
         const s = 1 - 0.16 * back;
         ctx.save();
         ctx.translate(box.cx, box.cy); ctx.scale(s, s); ctx.translate(-box.cx, -box.cy - box.h * 0.03 * back);
@@ -293,24 +300,15 @@
 
       // the two hedges; at pos 1 their leafy edges overlap in the middle
       const L = pl.hedgeL, R = pl.hedgeR;
-      const overlap = 36 * k;
-      const lx = -L.pw + pos * (W / 2 + overlap) + shake;
-      const rx = W - pos * (W / 2 + overlap) - shake;
+      const reach = W / 2 + 36 * k;
       if (pos > 0.001) {
-        // soft shadow each hedge throws on the room just past its edge
-        for (const [ex, dir] of [[lx + L.pw, 1], [rx, -1]]) {
-          const sg = ctx.createLinearGradient(ex, 0, ex + dir * 70 * k, 0);
-          sg.addColorStop(0, `rgba(0,10,0,${(0.35 * pos).toFixed(3)})`); sg.addColorStop(1, 'rgba(0,10,0,0)');
-          ctx.fillStyle = sg;
-          ctx.fillRect(Math.min(ex, ex + dir * 70 * k), 0, 70 * k, H);
-        }
-        drawPanel(ctx, L, lx, t, sway, H);
-        drawPanel(ctx, R, rx, t + 1.7, sway, H);
+        drawPanel(ctx, L, -L.pw + pos * reach, t, sway);
+        drawPanel(ctx, R, W - pos * reach, t + 1.7, sway);
       }
 
       // a burst of leaves where they meet
       if (vanishing && hit > 0.3 && prevE != null) {
-        for (let n = 0; n < 10 * hit; n++) {
+        for (let n = 0; n < 8 * hit; n++) {
           const x = W / 2 + (Math.random() - 0.5) * 80 * k, y = Math.random() * H;
           pl.spawn('leaf', x, y, 40 + ((Math.random() * 50) | 0), 105 + ((Math.random() * 70) | 0), 30, false);
         }
