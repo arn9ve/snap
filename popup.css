@@ -62,3 +62,9 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .keys { margin: 4px 0 6px; }
 kbd { font: 11px system-ui; background: #23232a; border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
 a { color: var(--accent-2); }
+.meter { position: relative; height: 8px; border-radius: 99px; background: #23232a; overflow: hidden; margin: 2px 0 6px; }
+.meter .level { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--accent); transition: width .12s; }
+.meter.heard .level { background: var(--ok); }
+.meter .thr { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; opacity: .8; }
+.micinfo { margin-bottom: 8px; }
+.micinfo.ok { color: var(--ok); } .micinfo.warn { color: var(--warn); }

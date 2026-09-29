@@ -1,6 +1,6 @@
 # Snap
 
-Snap your fingers and vanish from your own video in Google Meet. You stay in the call, your picture just dissolves (8 effects to choose from) and leaves an empty room behind, until you snap again.
+Snap your fingers and vanish from your own video in Google Meet. You stay in the call, your picture just dissolves (6 effects to choose from) and leaves an empty room behind, until you snap again.
 
 A Chrome extension. Everything runs locally in your browser: no video or audio is ever sent anywhere, and it works fine offline (aside from the call itself).
 
@@ -25,7 +25,7 @@ It's normal that Chrome doesn't offer a one-click install like it does for the C
      - **Capture room**: press it, step out of frame, and wait for the beep (countdown is adjustable, 5 s by default).
      - **Upload image**: if you use a macOS camera background (Control Center → Video Effects → Background), upload the same picture. The camera then already shows you on top of a known image, so the cut-out is clean and you never need to leave the frame. Snap figures out on its own if the picture needs to be mirrored.
      The background is saved, so it survives reloads.
-   - **Effect** — pick one of 8, or Random.
+   - **Effect** — pick one of 6.
    - **Duration** — how long the vanish takes.
 3. Snap your fingers (a normal, sharp snap) to vanish. Snap again to come back. You can snap as many times as you like, and snapping mid-way turns the effect around.
 
@@ -39,16 +39,14 @@ There is also a small pill in the top left of Meet with the same basics. `Cmd`/`
 | --- | --- |
 | Dust | The original: you crumble into grains that drift away |
 | Burn | A glowing edge eats through you like burning paper, embers float up |
-| Teleport | Beamed up from the feet to the head, with cyan sparks |
-| Ghost | You go soft and see-through and drift upwards |
-| Glitch | The signal breaks: slices jump, colours split, then cut |
-| Pixelate | You turn into big blocks that fall out one by one |
-| Melt | You drip down like wax |
+| Ghost | The colour drains out, you turn pale and see-through, ripple and float up, leaving wisps |
+| Melt | You sag and run down like hot wax, with long drips and falling drops |
 | Portal | You spin and shrink into a purple vortex that closes behind you |
+| Hedge | The Homer Simpson: a hedge grows behind you, you back slowly into it and the leaves close over you |
 
 ## Troubleshooting
 
-- **Not reacting to snaps** — move the `Snap sensitivity` slider to the right (more sensitive).
+- **Not reacting to snaps** — open the popup and snap: the mic meter shows how loud it was, and the snap has to cross the white line. If it doesn't, move `Snap sensitivity` to the right. If the popup says the mic is asleep, click once anywhere on the Meet page (Chrome keeps audio paused until you do). Snapping close to the laptop works best.
 - **Triggers on its own**, for example from talking or knocking sounds — move it to the left.
 - **The disappearing looks messy / leaves a trace** — the lighting changed since you captured the room. Capture again, or use a macOS camera background and upload the same image.
 - **The popup says "Reload the Meet tab"** — the extension was installed or updated after Meet was opened. Reload the tab.

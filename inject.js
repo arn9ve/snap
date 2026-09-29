@@ -32,7 +32,11 @@
   const post = (msg) => window.postMessage(Object.assign({ snapTo: 'bridge' }, msg), location.origin);
 
   function status() {
+    const m = S.snapMeter;
+    const mic = { level: m.level, trigger: m.trigger, heardAt: m.heardAt, state: m.state };
+    m.level = 0;   // peak since the last read
     return {
+      mic,
       enabled: shared.enabled, mode: shared.mode, camera: !!shared.active, bg: !!shared.bg,
       bgSource: shared.bgSource, effect: settings.effect, countdown, snap: snapState,
       flash: performance.now() < flashUntil ? flashMsg : '',
@@ -196,11 +200,7 @@
     S.tick(shared, now);
     const dur = Math.max(500, Math.min(6000, Number(settings.duration) || 2000));
     if (shared.mode === 'live' || shared.mode === 'gone') {
-      let fx = settings.effect;
-      if (fx === 'random' || !S.effects[fx]) {
-        const pool = S.effectList.filter((k) => k !== shared.effect);
-        fx = pool[(Math.random() * pool.length) | 0];
-      }
+      const fx = S.effects[settings.effect] ? settings.effect : 'dust';
       // coming back uses the same effect you left with, in reverse
       if (shared.mode === 'live') shared.effect = fx;
       shared.mode = shared.mode === 'live' ? 'out' : 'in';
@@ -295,7 +295,6 @@
   };
 
   // ---------- UI ----------
-  const LABELS = { random: 'Random' };
   function mountUI() {
     const host = document.createElement('div');
     host.style.cssText = 'position:fixed;top:12px;left:12px;z-index:2147483647;';
@@ -328,8 +327,8 @@
         .hint{color:#8d8d9a;line-height:1.4}
       ` });
     const range = el('input', { id: 'sens', type: 'range', min: '3', max: '14', step: '0.5', dir: 'rtl' });
-    const sel = el('select', { id: 'fx' }, [...S.effectList, 'random'].map((k) =>
-      el('option', { value: k, textContent: (S.effects[k] && S.effects[k].label) || LABELS[k] })));
+    const sel = el('select', { id: 'fx' }, S.effectList.map((k) =>
+      el('option', { value: k, textContent: S.effects[k].label })));
     const file = el('input', { id: 'file', type: 'file', accept: 'image/*' });
     file.style.display = 'none';
     const panel = el('div', { className: 'panel', id: 'panel' }, [
@@ -366,7 +365,7 @@
       else txt = shared.mode === 'out' ? 'vanishing' : 'returning';
       dot.className = 'dot ' + cls;
       st.textContent = txt;
-      if (root.activeElement !== sel) sel.value = settings.effect;
+      if (root.activeElement !== sel) sel.value = S.effects[settings.effect] ? settings.effect : 'dust';
       if (root.activeElement !== range) range.value = settings.sens;
     }
     uiRefresh = render;

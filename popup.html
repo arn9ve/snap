@@ -55,10 +55,16 @@
     <section>
       <h2>Triggers</h2>
       <label class="check"><input type="checkbox" id="snap"> Finger snap (uses the mic)</label>
-      <label class="slider" id="sensWrap">
-        <span>Snap sensitivity</span>
-        <input type="range" id="sens" min="3" max="14" step="0.5" dir="rtl">
-      </label>
+      <div id="sensWrap">
+        <div class="meter" title="Mic level. A snap has to cross the white line.">
+          <div class="level" id="level"></div><div class="thr" id="thr"></div>
+        </div>
+        <div class="muted micinfo" id="micInfo">Snap near your laptop to test it.</div>
+        <label class="slider">
+          <span>Snap sensitivity</span>
+          <input type="range" id="sens" min="3" max="14" step="0.5" dir="rtl">
+        </label>
+      </div>
       <label class="check"><input type="checkbox" id="pill"> Show the pill inside Meet</label>
       <p class="muted keys">
         <kbd>⌥</kbd><kbd>⇧</kbd><kbd>X</kbd> vanish / return from anywhere ·

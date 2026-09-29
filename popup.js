@@ -2,9 +2,8 @@
 // through bridge.js; one-off actions (vanish, capture) are sent as messages.
 const DEFAULTS = { enabled: true, effect: 'dust', duration: 2000, snap: true, sens: 9, pill: true, countdown: 5 };
 const EFFECTS = [
-  ['dust', 'Dust'], ['burn', 'Burn'], ['beam', 'Teleport'],
-  ['ghost', 'Ghost'], ['glitch', 'Glitch'], ['pixel', 'Pixelate'],
-  ['melt', 'Melt'], ['portal', 'Portal'], ['random', 'Random'],
+  ['dust', 'Dust'], ['burn', 'Burn'], ['ghost', 'Ghost'],
+  ['melt', 'Melt'], ['portal', 'Portal'], ['hedge', 'Hedge'],
 ];
 const isTab = new URLSearchParams(location.search).has('tab');
 if (isTab) document.body.classList.add('tab');
@@ -82,7 +81,27 @@ function renderStatus(st) {
   const ready = settings.enabled && st && st.camera && st.bg;
   tg.disabled = !ready;
   tg.textContent = st && (st.mode === 'gone' || st.mode === 'out') ? 'Return' : 'Vanish';
+  renderMic(st);
   $('capture').disabled = !(settings.enabled && st && st.camera) || (st && st.countdown !== 0);
+}
+
+// mic meter on a log scale: 0.0003 (silence) .. 0.3 (very loud)
+const pos = (v) => Math.max(0, Math.min(1, (Math.log10(Math.max(v, 1e-6)) + 3.5) / 3)) * 100;
+function renderMic(st) {
+  const info = $('micInfo'), meter = $('level').parentNode;
+  const mic = st && st.mic;
+  let msg = 'Snap near your laptop to test it.', cls = '';
+  if (!st || !settings.enabled) msg = 'Open a Meet call to test the mic.';
+  else if (st.snap === 'error') { msg = 'Microphone not available. Check Meet has mic access.'; cls = 'warn'; }
+  else if (!st.camera) msg = 'Listening starts when your camera is on in Meet.';
+  else if (st.snap !== 'on' || !mic) msg = 'Starting the mic…';
+  else if (mic.state === 'suspended') { msg = 'Mic is asleep: click anywhere on the Meet page once.'; cls = 'warn'; }
+  else if (Date.now() - mic.heardAt < 1500) { msg = 'Snap heard!'; cls = 'ok'; }
+  info.textContent = msg;
+  info.className = 'muted micinfo ' + cls;
+  meter.classList.toggle('heard', cls === 'ok');
+  $('level').style.width = (mic ? pos(mic.level) : 0) + '%';
+  $('thr').style.left = (mic && mic.trigger ? pos(mic.trigger) : 50) + '%';
 }
 
 async function uploadFile(file) {
@@ -103,6 +122,7 @@ async function init() {
   }
   const { settings: cur = {}, bg } = await chrome.storage.local.get(['settings', 'bg']);
   settings = Object.assign({}, DEFAULTS, cur);
+  if (!EFFECTS.some(([k]) => k === settings.effect)) settings.effect = 'dust';
   renderSettings();
   renderBg(bg);
 
@@ -140,7 +160,7 @@ async function init() {
   meetTab = await findMeet();
   const poll = async () => renderStatus(settings.enabled ? await send('status') : last);
   poll();
-  setInterval(poll, 400);
+  setInterval(poll, 150);
 }
 
 init();

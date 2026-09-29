@@ -319,7 +319,7 @@
 
     drawBg() { this.ctx.drawImage(this.bgFull, 0, 0, this.W, this.H); }
 
-    // kind: dust | ember | spark | pixel | swirl. x, y in full-size pixels.
+    // kind: dust | ember | wisp | drop | leaf | swirl. x, y in full-size pixels.
     spawn(kind, x, y, r, g, b, inward, extra) {
       if (this.parts.length >= MAX_PARTICLES) return;
       const p = { kind, x, y, r, g, b, age: 0, inward, size: 1.5 + Math.random() * 2.5, add: false };
@@ -332,15 +332,20 @@
         p.vx = (Math.random() - 0.5) * 40; p.vy = -(40 + Math.random() * 90);
         p.ox = (Math.random() - 0.5) * 60; p.oy = -(60 + Math.random() * 120);
         p.add = true; p.size = 1.5 + Math.random() * 2;
-      } else if (kind === 'spark') {
-        p.life = 0.35 + Math.random() * 0.6;
-        p.vx = (Math.random() - 0.5) * 16; p.vy = -(160 + Math.random() * 260);
-        p.ox = (Math.random() - 0.5) * 20; p.oy = -(120 + Math.random() * 220);
-        p.add = true; p.size = 1 + Math.random() * 2;
-      } else if (kind === 'pixel') {
-        p.life = 0.7 + Math.random() * 0.6;
-        p.vx = (Math.random() - 0.5) * 80; p.vy = -(Math.random() * 60);
-        p.size = (extra && extra.size) || 6;
+      } else if (kind === 'wisp') {
+        p.life = 1.0 + Math.random() * 1.2;
+        p.vx = (Math.random() - 0.5) * 20; p.vy = -(35 + Math.random() * 60);
+        p.ox = (Math.random() - 0.5) * 40; p.oy = -(60 + Math.random() * 100);
+        p.add = true; p.size = 2 + Math.random() * 4; p.soft = true;
+      } else if (kind === 'drop') {
+        p.life = 0.8 + Math.random() * 0.6;
+        p.vx = (Math.random() - 0.5) * 10; p.vy = 20 + Math.random() * 60;
+        p.size = 2 + Math.random() * 3;
+      } else if (kind === 'leaf') {
+        p.life = 1.0 + Math.random() * 0.8;
+        p.vx = (Math.random() - 0.5) * 90; p.vy = -(20 + Math.random() * 70);
+        p.ox = (Math.random() - 0.5) * 120; p.oy = -(30 + Math.random() * 90);
+        p.size = 3 + Math.random() * 4;
       } else if (kind === 'swirl') {
         p.life = 0.6 + Math.random() * 0.5;
         p.cx = extra.cx; p.cy = extra.cy; p.ang = extra.ang; p.rad = extra.rad; p.rad0 = extra.rad;
@@ -360,8 +365,9 @@
         if (!p.inward) {
           if (p.kind === 'dust') { p.x += p.vx * dt; p.y += p.vy * dt; p.vx += 40 * dt; p.vy -= 15 * dt; }
           else if (p.kind === 'ember') { p.x += (p.vx + Math.sin(p.age * 9 + p.y) * 25) * dt; p.y += p.vy * dt; }
-          else if (p.kind === 'spark') { p.x += p.vx * dt; p.y += p.vy * dt; p.vy *= 1 + dt; }
-          else if (p.kind === 'pixel') { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 700 * dt; }
+          else if (p.kind === 'wisp') { p.x += (p.vx + Math.sin(p.age * 3 + p.y * 0.02) * 30) * dt; p.y += p.vy * dt; }
+          else if (p.kind === 'drop') { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 500 * dt; }
+          else if (p.kind === 'leaf') { p.x += (p.vx + Math.sin(p.age * 6) * 40) * dt; p.y += p.vy * dt; p.vy += 220 * dt; p.vx *= 1 - dt; }
           else if (p.kind === 'swirl') {
             const u = p.age / p.life;
             p.ang += dt * (3 + 6 * u);
@@ -388,9 +394,11 @@
           } else {
             a = p.kind === 'ember' ? (1 - u) * (0.6 + 0.4 * Math.sin(p.age * 30)) : 1 - u;
           }
-          ctx.globalAlpha = Math.max(0, a);
+          ctx.globalAlpha = Math.max(0, a) * (p.soft ? 0.35 : 1);
           ctx.fillStyle = `rgb(${p.r},${p.g},${p.b})`;
-          ctx.fillRect(x, y, p.size, p.size);
+          if (p.soft) { ctx.beginPath(); ctx.arc(x, y, p.size, 0, 6.2832); ctx.fill(); }
+          else if (p.kind === 'leaf') { ctx.beginPath(); ctx.ellipse(x, y, p.size, p.size * 0.45, p.age * 4 + p.r, 0, 6.2832); ctx.fill(); }
+          else ctx.fillRect(x, y, p.size, p.size);
         }
       }
       ctx.globalCompositeOperation = 'source-over';
